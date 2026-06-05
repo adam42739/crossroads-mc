@@ -1,0 +1,13 @@
+{
+  "uuid": "e56ff2da-8902-4642-b31d-f941cde22497",
+  "category": "test",
+  "name": "Test Survival",
+  "engine": "vanilla",
+  "version": "1.21",
+  "settings": {
+    "gamemode": "survival",
+    "difficulty": "normal",
+    "hardcore": false,
+    "levelType": "default"
+  }
+}

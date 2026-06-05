@@ -1,0 +1,19 @@
+[Unit]
+Description=Minecraft Java Server (%i slot)
+After=network.target local-fs.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/mnt/minecraft-data
+# %i is the category (e.g. hardcore|creative|survival). start-server.sh resolves
+# the active world UUID for that category from the manifest and launches it.
+ExecStart=/mnt/minecraft-data/scripts/start-server.sh %i
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=minecraft@%i
+
+[Install]
+WantedBy=multi-user.target

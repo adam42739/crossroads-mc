@@ -1,0 +1,5 @@
+{
+  "domain_name": "crossroads-mc.net",
+  "instance_type": "c6i.xlarge",
+  "ebs_size": 20
+}

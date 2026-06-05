@@ -1,0 +1,19 @@
+# Minecraft runtime data
+world/
+logs/
+debug/
+*.jar
+*.lck
+
+# CDK / Node
+cdk.out/
+node_modules/
+dist/
+
+# Claude
+.claude/settings.local.json
+
+# Python
+__pycache__/
+discord-bot/.venv
+util/.venv

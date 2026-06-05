@@ -1,0 +1,13 @@
+[Unit]
+Description=Crossroads — start the live world slot on boot
+After=network-online.target
+Wants=network-online.target
+RequiresMountsFor=/mnt/minecraft-data
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/mnt/minecraft-data/scripts/mc-boot.sh
+
+[Install]
+WantedBy=multi-user.target
