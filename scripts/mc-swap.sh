@@ -15,6 +15,10 @@ CATEGORY="${1:?usage: mc-swap.sh <category>}"
 echo "Swap: syncing assets from S3"
 sync_assets
 
+# Re-source the freshly-synced helpers (sourced above BEFORE the sync), so a fix
+# to mc-common.sh takes effect on this swap rather than the next one.
+. "/mnt/minecraft-data/scripts/mc-common.sh"
+
 category_port "$CATEGORY" >/dev/null || { echo "Unknown category: $CATEGORY" >&2; exit 1; }
 
 UUID="$(active_uuid_for "$CATEGORY")"

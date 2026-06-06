@@ -41,6 +41,12 @@ export interface MinecraftWorld {
     hardcore: boolean;
     levelType: LevelType | '';
     seed?: string;
+    /**
+     * Bukkit/Paper plugin slugs (as on Modrinth) to install into the world's
+     * plugins/ folder on first provision — e.g. ["viaversion","viabackwards"].
+     * Paper engine only; vanilla/forge/fabric can't load Bukkit plugins.
+     */
+    plugins?: string[];
   };
 }
 
@@ -173,6 +179,13 @@ export function validateManifest(m: Manifest): void {
     }
     if (w.settings.levelType && !LEVEL_TYPES.includes(w.settings.levelType as LevelType)) {
       throw new Error(`World "${w.name}" (${w.uuid}): invalid levelType "${w.settings.levelType}" (expected ${LEVEL_TYPES.join('|')}).`);
+    }
+    // Plugins are Bukkit/Paper jars — only the paper engine can load them.
+    if (w.settings.plugins?.length && w.engine && w.engine !== 'paper') {
+      throw new Error(
+        `World "${w.name}" (${w.uuid}): settings.plugins requires engine "paper" (got "${w.engine}"). ` +
+          'vanilla/forge/fabric cannot load Bukkit plugins.',
+      );
     }
     // Hardcore implies hard difficulty — only meaningful once the world is filled in.
     if (isConfigured(w) && w.settings.hardcore && w.settings.difficulty !== 'hard') {

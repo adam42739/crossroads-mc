@@ -70,6 +70,38 @@ download_engine() {
   esac
 }
 
+# ── Plugin downloads (Paper only) ───────────────────────────────────────────────
+# Fetch Bukkit/Paper plugins from Modrinth by project slug into plugins/. Like the
+# engine jar, this is FIRST-PROVISION ONLY (skips a slug whose <slug>.jar already
+# exists) so repeated boots/swaps don't depend on Modrinth being reachable. To
+# update a plugin, delete its jar from the world's plugins/ and re-provision.
+#
+# Usage: download_plugins <mc_version> <plugins_dir> <slug> [<slug> ...]
+download_plugins() {
+  local version="$1" pdir="$2"; shift 2
+  local slug url
+  mkdir -p "$pdir"
+  for slug in "$@"; do
+    [ -f "$pdir/$slug.jar" ] && continue
+    # Newest RELEASE build for this MC version + a Bukkit-family loader; fall back
+    # to the newest build of any type. Pick the primary file (else the first).
+    url=$(curl -sf -G "https://api.modrinth.com/v2/project/$slug/version" \
+            --data-urlencode 'loaders=["paper","spigot","bukkit"]' \
+            --data-urlencode "game_versions=[\"$version\"]" 2>/dev/null \
+          | jq -r 'map(select(.version_type=="release")) as $rel
+                   | (($rel[0] // .[0]).files) as $files
+                   | (($files | map(select(.primary)))[0] // $files[0]).url // empty' \
+              2>/dev/null) || url=""
+    if [ -z "$url" ]; then
+      echo "  plugin '$slug': no $version build found on Modrinth — skipped." >&2
+      continue
+    fi
+    echo "  downloading plugin '$slug' for $version"
+    wget -qO "$pdir/$slug.jar" "$url" \
+      || { echo "  plugin '$slug': download failed — skipped." >&2; rm -f "$pdir/$slug.jar"; }
+  done
+}
+
 # ── Provision a single world from its manifest JSON object (on stdin) ────────────
 provision_one() {
   local world_json="$1"
@@ -98,6 +130,17 @@ provision_one() {
   if [ ! -f "$dir/server.jar" ]; then
     echo "Downloading $engine $version for world '$name' ($uuid)"
     download_engine "$engine" "$version" "$dir/server.jar" || return $?
+  fi
+
+  # Plugins — Paper only (vanilla/forge/fabric can't load Bukkit jars). Slugs come
+  # from settings.plugins; download_plugins skips any already-present jar.
+  if [ "$engine" = "paper" ]; then
+    local plugins
+    plugins=$(jq -r '.settings.plugins // [] | .[]' <<<"$world_json")
+    if [ -n "$plugins" ]; then
+      echo "Installing plugins for '$name': $(echo $plugins | tr '\n' ' ')"
+      download_plugins "$version" "$dir/plugins" $plugins
+    fi
   fi
 
   # server.properties — baked from settings on first provision only; preserved

@@ -1,0 +1,14 @@
+{
+  "uuid": "4f7275ab-178c-4da4-9f97-1672d1f35925",
+  "category": "hardcore",
+  "name": "Hardcore Survival 1",
+  "engine": "paper",
+  "version": "1.21",
+  "settings": {
+    "gamemode": "survival",
+    "difficulty": "hard",
+    "hardcore": true,
+    "levelType": "default",
+    "plugins": ["viaversion", "viabackwards", "viarewind"]
+  }
+}

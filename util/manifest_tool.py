@@ -70,7 +70,8 @@ def cmd_world(args):
         'name': args.name,
         'engine': '',
         'version': '',
-        'settings': {'gamemode': '', 'difficulty': '', 'hardcore': False, 'levelType': ''},
+        'settings': {'gamemode': '', 'difficulty': '', 'hardcore': False, 'levelType': '',
+                     'plugins': []},
     })
     print(f'Created world "{args.name}" in category "{args.category}".')
     print(f'  uuid: {new_uuid}')

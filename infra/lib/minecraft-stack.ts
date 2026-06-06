@@ -307,12 +307,22 @@ export class MinecraftStack extends cdk.Stack {
       functionName: discordFnName,
       code: lambda.DockerImageCode.fromImageAsset(path.join(__dirname, '..', '..', 'discord-bot')),
       role: discordBotRole,
-      timeout: cdk.Duration.seconds(10),
+      // Phase-2 worker may retry the @original edit with backoff (up to ~6.5s)
+      // while the deferred ACK propagates, on top of a cold start + EC2/SSM work.
+      timeout: cdk.Duration.seconds(20),
+      // Lambda scales CPU with memory. At the 128 MB default a container cold
+      // start takes ~2.4s of init, which pushes the Phase-1 deferred ACK past
+      // Discord's hard 3s interaction deadline (the interaction is then dropped
+      // and every followup 404s "Unknown Webhook"). This bot needs the CPU, not
+      // the RAM (max used ~112 MB), purely to cold-start fast enough.
+      memorySize: 1024,
       environment: {
         INSTANCE_ID: instance.instanceId,
         // Discord public key + admin role id are read from SSM at runtime
         // (/crossroads-mc/discord/*), not injected here.
-        SERVER_HOSTNAME: `server.${props.domainName}`,
+        // Apex domain; the bot builds per-category connect hosts as
+        // <category>.<domain> (matching the SRV records).
+        DOMAIN_NAME: props.domainName,
         SSM_PREFIX,
         MANIFEST_JSON: manifestJson,
       },

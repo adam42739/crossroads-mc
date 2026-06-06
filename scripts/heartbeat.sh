@@ -4,7 +4,12 @@
 # Only shuts down if a world slot is running — avoids killing a
 # stopped-but-not-yet-terminated instance.
 
-THRESHOLD=100    # packets in the sampling window
+# Packets-received floor for the sampling window. Below this the server is
+# considered idle. Tuned from observed data: a truly idle public server (open
+# game port → scans + server-list pings + Discord /status) sits ~190-240
+# packets/window; even brief play jumps to ~900+. 500 sits in that gap with
+# margin on both sides — well above idle noise, well below active traffic.
+THRESHOLD=500
 SAMPLE_SECS=300  # 5-minute window aligns with CloudWatch period
 
 # Only act if a world slot is actually running (any minecraft@<category> unit).

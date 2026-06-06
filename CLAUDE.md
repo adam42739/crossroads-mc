@@ -142,8 +142,18 @@ replacement so the server IP never changes.
 
 **Route 53** — A CDK-created public hosted zone for `domain_name`, a `server.`
 A record → EIP, and one `_minecraft._tcp.<category>` SRV record per slot. The
-stack outputs `HostedZoneNameServers`; repoint the registrar to these on first
-deploy.
+stack outputs `HostedZoneNameServers`; repoint the registrar to these to make
+Route 53 authoritative.
+
+> **DNS status (current): Route 53 is provisioned but DORMANT.** Authoritative
+> DNS is served by **Cloudflare** today — the registrar's nameservers have **not**
+> been repointed to the `HostedZoneNameServers` output. The Route 53 hosted zone
+> and its records still deploy with the stack (and we keep paying for / maintaining
+> them) but are not in the resolution path. Live records (e.g.
+> `test.crossroads-mc.net`) are managed manually in Cloudflare. The plan is to
+> transfer the domain's authoritative nameservers to AWS in a few months and pick
+> up Route 53 where we left off; until then, treat the Route 53 records as
+> deploy-time scaffolding, not live DNS, and make DNS changes in Cloudflare.
 
 **EBS Data Volume** — GP3 sized from `config.json` `ebs_size` (`/dev/sdh`, mounted
 at `/mnt/minecraft-data`), `RemovalPolicy.RETAIN`. Holds **all** worlds plus
@@ -179,7 +189,8 @@ does the actual shutdown) and `minecraft-disk-usage` (EBS used-% custom metric).
 ├── scripts/                   # Re-synced from the CDK scripts asset each boot/swap
 └── worlds/<UUID>/             # All provisioned worlds live here (no S3 tiering)
     ├── server.jar             # Engine (vanilla or paper)
-    ├── mods/  plugins/  world/
+    ├── plugins/<slug>.jar     # Paper plugins from settings.plugins (Modrinth, first provision)
+    ├── mods/  world/
     ├── server.properties      # Baked from manifest settings (first provision only)
     └── world.json             # {uuid, category, name, engine, version}
 ```
@@ -247,6 +258,7 @@ is **no `/swap`** — world→category assignment is `make set` + `cdk deploy`.
 | `server.properties` | Baked from manifest settings + RCON password from SSM | **Preserved**, except `rcon.password` re-fetched from SSM each provision |
 | `whitelist.json` | Union-merged | Union-merged |
 | `server.jar` | Downloaded (vanilla/paper) | Preserved |
+| `plugins/<slug>.jar` | Downloaded from Modrinth (Paper, `settings.plugins`) | Preserved (re-fetched only if the jar is missing) |
 | `world.json` | Written from manifest | Refreshed from manifest |
 | World data | Created by server | Preserved |
 
@@ -262,6 +274,14 @@ is **no `/swap`** — world→category assignment is `make set` + `cdk deploy`.
   world to be fully configured), then `cdk deploy`.
 - **Engines:** `vanilla` and `paper` are fully supported. `forge`/`fabric` are
   stubbed — `provision-worlds.sh` skips them (phase 2).
+- **Plugins (Paper only):** a world's `settings.plugins` is a list of Modrinth
+  project slugs (e.g. `["viaversion","viabackwards","viarewind"]` for cross-version
+  client support). `provision-worlds.sh` downloads each to `worlds/<uuid>/plugins/<slug>.jar`
+  on **first provision only** (skips a slug whose jar already exists), resolving the
+  newest release build for the world's version + a Bukkit-family loader from the
+  Modrinth API. Validation rejects `plugins` on a non-`paper` engine. To update a
+  plugin, delete its jar from EBS and re-provision (`/wake` or reboot). A Modrinth
+  miss for one slug is logged and skipped, not fatal.
 - Changes to `scripts/`, `config/`, or the manifests are bundled as S3 assets on
   `cdk deploy`; a running instance picks them up on the next boot or swap (via
   `sync_assets`), not live.
@@ -274,5 +294,39 @@ is **no `/swap`** — world→category assignment is `make set` + `cdk deploy`.
   `/crossroads-mc/discord/admin-role-id` (String),
   `/crossroads-mc/rcon-password` (SecureString).
 - **First deploy only:** repoint the domain's registrar nameservers to the
-  stack's `HostedZoneNameServers` output.
+  stack's `HostedZoneNameServers` output. **Deferred:** DNS currently runs through
+  Cloudflare and Route 53 is dormant — do this only when cutting authoritative DNS
+  over to AWS (planned in a few months). See the "Route 53" note above; manage live
+  records in Cloudflare until then.
 - TypeScript type-check: `cd infra && npx tsc --noEmit`
+
+### Redeployment workflow
+
+**Golden rule:** an EC2 **instance replacement** happens *only* when the user-data
+text changes — i.e. when you edit `buildUserData` in `lib/minecraft-stack.ts`.
+Adding/editing **worlds, categories, `scripts/`, or `config/` never touches
+user-data**, so they deploy through the `sync_assets` re-sync model with **no
+instance replacement**. Replacement is the only path that hits the
+volume-attachment deadlock (the "User-data change" row below) — its recovery is
+`stop instance → detach data volume → cdk deploy`.
+
+**Always diff first — it tells you which path you're on:**
+
+```bash
+cd infra && npx cdk diff      # look for McServer being REPLACED
+npx cdk deploy                # safe if the instance is not replacing
+```
+
+If `cdk diff` shows `McServer` replacing, you edited user-data → use the
+stop→detach→deploy procedure. For worlds/scripts/config you'll never see that.
+
+| Change | Steps | Goes live |
+|---|---|---|
+| **Add a world** | `make world …`, fill in the JSON, (`make set` if activating), `cdk diff` + `cdk deploy` | Provisioned lazily on the next start/swap of its category; `/wake <category>` to apply now |
+| **Update `scripts/` or `config/`** | edit, `cdk diff` + `cdk deploy` | Picked up via `sync_assets` on the next boot or swap — `/wake <category>` or reboot to apply now (server restart; no hot reload) |
+| **Add a category** | `make category …`, `cdk diff` + `cdk deploy`, then **`make register-commands`** | New SG port + SRV record on deploy; bot `/wake` choice after re-registering |
+| **User-data change** (`buildUserData`) | stop instance → detach data volume → `cdk deploy` (instance is replaced) | On the replacement instance's first boot |
+
+Notes:
+- `cdk deploy` requires **Docker running** (it rebuilds the Discord-bot Lambda image), even for a scripts-only change.
+- Applying scripts/config to a running server always means a **slot restart** (brief player disconnect) — there is no live reload.

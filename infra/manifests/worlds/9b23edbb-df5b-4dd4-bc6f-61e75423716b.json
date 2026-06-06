@@ -1,0 +1,14 @@
+{
+  "uuid": "9b23edbb-df5b-4dd4-bc6f-61e75423716b",
+  "category": "test",
+  "name": "Test Paper (multi-version)",
+  "engine": "paper",
+  "version": "1.21",
+  "settings": {
+    "gamemode": "survival",
+    "difficulty": "normal",
+    "hardcore": false,
+    "levelType": "default",
+    "plugins": ["viaversion", "viabackwards", "viarewind"]
+  }
+}

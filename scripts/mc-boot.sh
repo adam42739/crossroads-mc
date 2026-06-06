@@ -13,6 +13,12 @@ set -euo pipefail
 echo "Boot: syncing assets from S3"
 sync_assets
 
+# Re-source the freshly-synced helpers. mc-common.sh was sourced above BEFORE the
+# sync, so without this a fix to mc-common.sh would only take effect on the *next*
+# boot. The running mc-boot.sh keeps its original inode (sync_assets renames into
+# place), so only the sourced helpers need refreshing.
+. "/mnt/minecraft-data/scripts/mc-common.sh"
+
 # Seed the live category if unset: first category with a non-empty activeWorld.
 LIVE="$(ssm_get active-category)"
 if [ -z "$LIVE" ] || [ "$LIVE" = "None" ]; then

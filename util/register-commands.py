@@ -1,15 +1,16 @@
 #!/usr/bin/env python3
 """Register the Crossroads slash commands with Discord.
 
-Run locally (not on the server). Requires three env vars:
-  DISCORD_APP_ID     — Application ID (Discord Dev Portal → General Information)
-  DISCORD_BOT_TOKEN  — Bot token (Dev Portal → Bot)
-  DISCORD_GUILD_ID   — (optional) register to one guild for instant updates;
-                       omit to register global commands (up to 1h propagation).
+Run locally (not on the server). Requires three arguments:
+  --app-id     Application ID (Discord Dev Portal → General Information)
+  --bot-token  Bot token (Dev Portal → Bot)
+  --guild-id   (optional) register to one guild for instant updates;
+               omit to register global commands (up to 1h propagation).
 
 Usage (normally via make):
-  DISCORD_APP_ID=... DISCORD_BOT_TOKEN=... DISCORD_GUILD_ID=... make register-commands
+  make register-commands APP_ID=... BOT_TOKEN=... GUILD_ID=...
 """
+import argparse
 import json
 import os
 import sys
@@ -39,7 +40,7 @@ STRING = 3
 COMMANDS = [
     {
         'name': 'wake',
-        'description': 'Power on the server and load a world category (admin only)',
+        'description': 'Power on the server and load a world category (MC_BOT_AUTH role required)',
         'options': [{
             'type': STRING, 'name': 'category', 'description': 'Which slot to wake',
             'required': True, 'choices': CATEGORY_CHOICES,
@@ -47,17 +48,26 @@ COMMANDS = [
     },
     {
         'name': 'status',
-        'description': 'Show server power state and the active world per category',
+        'description': 'Show server power state and the active world by category (MC_BOT_AUTH role required)',
     },
 ]
 
 
 def main():
-    app_id = os.environ.get('DISCORD_APP_ID')
-    token = os.environ.get('DISCORD_BOT_TOKEN')
-    guild_id = os.environ.get('DISCORD_GUILD_ID')
-    if not app_id or not token:
-        sys.exit('Set DISCORD_APP_ID and DISCORD_BOT_TOKEN.')
+    parser = argparse.ArgumentParser(description=__doc__,
+                                     formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument('--app-id', required=True,
+                        help='Discord Application ID')
+    parser.add_argument('--bot-token', required=True,
+                        help='Discord bot token')
+    parser.add_argument('--guild-id', default=None,
+                        help='Register to one guild for instant updates '
+                             '(omit for global commands)')
+    args = parser.parse_args()
+
+    app_id = args.app_id
+    token = args.bot_token
+    guild_id = args.guild_id
 
     if guild_id:
         url = f'https://discord.com/api/v10/applications/{app_id}/guilds/{guild_id}/commands'
@@ -67,9 +77,15 @@ def main():
         scope = 'global'
 
     # PUT bulk-overwrites the full command set.
+    # Discord (behind Cloudflare) rejects the default Python-urllib UA with a
+    # 1010 error, so send a proper DiscordBot user agent per their API docs.
     req = urllib.request.Request(
         url, data=json.dumps(COMMANDS).encode(), method='PUT',
-        headers={'Authorization': f'Bot {token}', 'Content-Type': 'application/json'},
+        headers={
+            'Authorization': f'Bot {token}',
+            'Content-Type': 'application/json',
+            'User-Agent': 'DiscordBot (https://github.com/adam42939/crossroads-mc, 1.0)',
+        },
     )
     try:
         with urllib.request.urlopen(req) as resp:
