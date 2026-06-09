@@ -28,5 +28,5 @@ echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) iface=$IFACE delta=$DELTA threshold=$THRESH
 
 if [ "$DELTA" -lt "$THRESHOLD" ]; then
   echo "Server idle — initiating shutdown"
-  /sbin/shutdown -h +1 "Minecraft server idle shutdown"
+  /sbin/shutdown -P +1 "Minecraft server idle shutdown"
 fi

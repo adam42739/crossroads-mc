@@ -68,7 +68,7 @@ export interface Manifest {
 export interface GlobalConfig {
   /** Apex domain that owns the Route 53 hosted zone (e.g. crossroads-mc.net). */
   domain_name: string;
-  /** EC2 instance type for the game server (e.g. c6i.xlarge). */
+  /** EC2 instance type for the game server (e.g. c8g.xlarge). */
   instance_type: string;
   /** Size of the persistent EBS data volume, in GiB. */
   ebs_size: number;

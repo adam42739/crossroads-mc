@@ -179,9 +179,9 @@ export class MinecraftStack extends cdk.Stack {
       vpc,
       vpcSubnets: { subnetType: ec2.SubnetType.PUBLIC },
       instanceType: new ec2.InstanceType(props.instanceType),
-      // Ubuntu 24.04 LTS (amd64) — resolves to latest AMI at deploy time
+      // Ubuntu 24.04 LTS (arm64/Graviton) — resolves to latest AMI at deploy time
       machineImage: ec2.MachineImage.fromSsmParameter(
-        '/aws/service/canonical/ubuntu/server/24.04/stable/current/amd64/hvm/ebs-gp3/ami-id',
+        '/aws/service/canonical/ubuntu/server/24.04/stable/current/arm64/hvm/ebs-gp3/ami-id',
         { os: ec2.OperatingSystemType.LINUX },
       ),
       securityGroup: sg,
@@ -375,7 +375,7 @@ function buildUserData(p: UserDataParams): string[] {
     // is on systemd's default PATH for the scripts that call `aws` later).
     'apt-get update -y',
     'apt-get install -y openjdk-17-jre-headless openjdk-21-jre-headless jq unzip wget curl',
-    'curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o /tmp/awscliv2.zip',
+    'curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-aarch64.zip" -o /tmp/awscliv2.zip',
     'unzip -q /tmp/awscliv2.zip -d /tmp',
     '/tmp/aws/install --update',
     'rm -rf /tmp/aws /tmp/awscliv2.zip',

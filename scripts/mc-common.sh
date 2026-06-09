@@ -41,10 +41,14 @@ mc_heap_mb() {
 }
 
 # Map a Minecraft version to a system JDK home. 1.20.5+ requires Java 21.
+# The JVM dir is arch-suffixed (amd64 on x86_64, arm64 on Graviton), so derive
+# it from dpkg rather than hardcoding — keeps this portable across instance archs.
 java_home_for_version() {
+  local arch
+  arch="$(dpkg --print-architecture)"
   case "$1" in
-    1.20.1) echo "/usr/lib/jvm/java-17-openjdk-amd64" ;;
-    *)      echo "/usr/lib/jvm/java-21-openjdk-amd64" ;;
+    1.20.1) echo "/usr/lib/jvm/java-17-openjdk-${arch}" ;;
+    *)      echo "/usr/lib/jvm/java-21-openjdk-${arch}" ;;
   esac
 }
 
